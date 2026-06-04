@@ -5,6 +5,7 @@ description = "A python package for calculating permeability"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "fastmcp>=3.4.0",
     "numpy>=2.4.6",
 ]
 
@@ -13,3 +14,10 @@ test = [
     "flake8>=7.3.0",
     "pytest>=9.0.3",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+permeability_mcp = "permeability.mcp.server:run"

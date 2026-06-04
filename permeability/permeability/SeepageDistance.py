@@ -20,7 +20,7 @@ def calculate_permeability(
     return (L * L * mu * phi) / (2 * t * dP)
 
 
-def calculate_time(
+def calculate_infiltration_time(
         L: float,
         mu: float,
         phi: float,

@@ -22,7 +22,7 @@ def test_permeability_permeability():
 
 
 def test_permeability_time():
-    result = SeepageDistance.calculate_time(
+    result = SeepageDistance.calculate_infiltration_time(
         K=K,
         L=L,
         mu=mu,
