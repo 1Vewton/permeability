@@ -5,10 +5,14 @@ Provide tools for scientific calculations related to Material Science.
 permeability_calculation_instruction = """
 Calculate permeability using the seepage distance method.
 K = L² · μ · φ / (2 · t · ΔP)
+If you fill the p_c field that is optional to fill, you will get the result corrected by the capillary pressure:
+K = μ · φ · L² / (2 · t · (ΔP + p_c))
 """
 infiltration_time_calculation_instruction = """
-Calculate permeability using the seepage distance method.
+Calculate total time for fluid to fully penetrate the sample.
 t = μ · φ · L² / (2 · K · ΔP)
+If you fill the p_c field that is optional to fill, you will get the result corrected by the capillary pressure:
+t = μ · φ · L² / (2 · K · (ΔP + p_c))
 """
 m22darcy_instruction = """
 Convert m^2 to Darcy
@@ -35,3 +39,4 @@ K_meaning = "Permeability (m²)"
 m2K_meaning = "Permeability in m^2"
 darcyK_meaning = "Permeability in Darcy"
 z_meaning = "Infiltration front position at given time(s)"
+p_c_meaning = "Capillary pressure (Pa)"

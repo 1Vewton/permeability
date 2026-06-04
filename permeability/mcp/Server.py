@@ -1,4 +1,8 @@
-from typing import Annotated, List
+from typing import (
+    Annotated,
+    List,
+    Optional
+)
 import argparse
 import numpy as np
 # Fastmcp dependencies
@@ -25,13 +29,18 @@ from permeability.mcp.Prompts import (
     multi_t_meaning,
     darcyK_meaning,
     m2K_meaning,
-    z_meaning
+    z_meaning,
+    p_c_meaning
 )
 from permeability.permeability.Seepage import (
     calculate_permeability,
     calculate_infiltration_time,
     calculate_infiltration_front_position,
     calculate_infiltration_front_position_with_multiple_time
+)
+from permeability.permeability.Capillary import (
+    calculate_permeability_with_capillary_correction,
+    calculate_infiltration_time_with_capillary_correction
 )
 from permeability.utils.UnitConverter import (
     darcy2m2,
@@ -60,15 +69,26 @@ async def calculate_permeability_by_seepage_distance(
         phi: Annotated[float, phi_meaning],
         t: Annotated[float, t_meaning],
         dP: Annotated[float, dP_meaning],
+        p_c: Optional[Annotated[float, p_c_meaning]] = None
 ) -> dict:
     try:
-        calculation_result = calculate_permeability(
-            L=L,
-            mu=mu,
-            phi=phi,
-            t=t,
-            dP=dP
-        )
+        if p_c is None:
+            calculation_result = calculate_permeability(
+                L=L,
+                mu=mu,
+                phi=phi,
+                t=t,
+                dP=dP
+            )
+        else:
+            calculation_result = calculate_permeability_with_capillary_correction(
+                L=L,
+                mu=mu,
+                phi=phi,
+                t=t,
+                dP=dP,
+                p_c=p_c
+            )
         return process_mcp_calculation_result(
             value=calculation_result,
             unit="m^2",
@@ -90,15 +110,26 @@ async def calculate_infiltration_time_tool(
         phi: Annotated[float, phi_meaning],
         K: Annotated[float, K_meaning],
         dP: Annotated[float, dP_meaning],
+        p_c: Optional[Annotated[float, p_c_meaning]] = None
 ) -> dict:
     try:
-        calculation_result = calculate_infiltration_time(
-            L=L,
-            mu=mu,
-            phi=phi,
-            K=K,
-            dP=dP
-        )
+        if p_c is None:
+            calculation_result = calculate_infiltration_time(
+                L=L,
+                mu=mu,
+                phi=phi,
+                K=K,
+                dP=dP
+            )
+        else:
+            calculation_result = calculate_infiltration_time_with_capillary_correction(
+                L=L,
+                mu=mu,
+                phi=phi,
+                K=K,
+                dP=dP,
+                p_c=p_c
+            )
         return process_mcp_calculation_result(
             value=calculation_result,
             unit="s",
