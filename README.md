@@ -10,6 +10,10 @@ $$
 t = \frac{\mu \cdot \phi \cdot L^2}{2 \cdot K \cdot \Delta P}
 $$
 
+$$
+z(t) = \sqrt{\frac{2 \cdot K \cdot \Delta P \cdot t}{\mu \cdot \phi}}
+$$
+
 | Symbol | Meaning | Unit |
 |--------|---------|------|
 | $K$ | Permeability | m² |
