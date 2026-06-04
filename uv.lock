@@ -744,6 +744,7 @@ dependencies = [
 [package.dev-dependencies]
 test = [
     { name = "flake8" },
+    { name = "numpy" },
     { name = "pytest" },
 ]
 
@@ -756,6 +757,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 test = [
     { name = "flake8", specifier = ">=7.3.0" },
+    { name = "numpy", specifier = ">=2.4.6" },
     { name = "pytest", specifier = ">=9.0.3" },
 ]
 

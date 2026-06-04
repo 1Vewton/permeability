@@ -12,6 +12,7 @@ dependencies = [
 [dependency-groups]
 test = [
     "flake8>=7.3.0",
+    "numpy>=2.4.6",
     "pytest>=9.0.3",
 ]
 
