@@ -15,8 +15,14 @@ def calculate_permeability(
     :param dP: Constant pressure difference across the sample (Pa)
     :return: K, Permeability (m^2)
     '''
-    if dP == 0 or t == 0:
-        raise ValueError("dP and t cannot be 0")
+    if dP <= 0 or t <= 0:
+        raise ValueError("dP and t cannot be smaller than 0")
+    if mu <= 0:
+        raise ValueError("mu cannot be <= 0")
+    if phi > 1 or phi < 0:
+        raise ValueError("phi must be between 0 and 1")
+    if L <= 0:
+        raise ValueError("L must be greater than 0")
     return (L * L * mu * phi) / (2 * t * dP)
 
 
@@ -37,6 +43,12 @@ def calculate_infiltration_time(
     :param dP: Constant pressure difference across the sample (Pa)
     :return: t, Total time for fluid to fully penetrate the sample (s)
     '''
-    if K == 0 or dP == 0:
-        raise ValueError("dP and K cannot be 0")
+    if K <= 0 or dP <= 0:
+        raise ValueError("dP and K cannot be smaller than 0")
+    if mu <= 0:
+        raise ValueError("mu cannot be <= 0")
+    if phi > 1 or phi < 0:
+        raise ValueError("phi must be between 0 and 1")
+    if L <= 0:
+        raise ValueError("L must be greater than 0")
     return (mu * phi * L * L) / (2 * K * dP)

@@ -1,5 +1,10 @@
-from permeability.permeability import SeepageDistance
 import pytest
+# Project dependencies
+from permeability.permeability import SeepageDistance
+from permeability.utils.UnitConverter import (
+    darcy2m2,
+    m22darcy
+)
 
 
 t = 1e2
@@ -30,3 +35,10 @@ def test_permeability_time():
         dP=dP
     )
     assert result == pytest.approx(1e2)
+
+
+def test_darcy_m2():
+    m2 = 3.8448e-13
+    darcy = m22darcy(m2)
+    assert darcy == pytest.approx(0.3895743469)
+    assert darcy2m2(darcy) == pytest.approx(m2)
