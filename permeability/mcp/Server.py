@@ -1,5 +1,6 @@
-from typing import Annotated
+from typing import Annotated, List
 import argparse
+import numpy as np
 # Fastmcp dependencies
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
@@ -13,18 +14,24 @@ from permeability.mcp.Prompts import (
     infiltration_time_calculation_instruction,
     darcy2m2_instruction,
     m22darcy_instruction,
+    infiltration_front_position_instruction,
+    infiltration_front_position_multiple_time_instruction,
     L_meaning,
     mu_meaning,
     phi_meaning,
     t_meaning,
     dP_meaning,
     K_meaning,
+    multi_t_meaning,
     darcyK_meaning,
-    m2K_meaning
+    m2K_meaning,
+    z_meaning
 )
-from permeability.permeability.SeepageDistance import (
+from permeability.permeability.Seepage import (
     calculate_permeability,
-    calculate_infiltration_time
+    calculate_infiltration_time,
+    calculate_infiltration_front_position,
+    calculate_infiltration_front_position_with_multiple_time
 )
 from permeability.utils.UnitConverter import (
     darcy2m2,
@@ -101,6 +108,7 @@ async def calculate_infiltration_time_tool(
         raise ToolError(e)
 
 
+# Tool for converting darcy to m2
 @mcp.tool(
     name="darcy_to_m2_converter",
     description=darcy2m2_instruction,
@@ -117,6 +125,7 @@ async def darcy_to_m2_converter(
     )
 
 
+# Tool for converting m2 to darcy
 @mcp.tool(
     name="m2_to_darcy_converter",
     description=m22darcy_instruction,
@@ -131,6 +140,67 @@ async def m2_to_darcy_converter(
         unit="Darcy",
         meaning=darcyK_meaning
     )
+
+
+# Tool for calculating infiltration front position
+@mcp.tool(
+    name="calculate_infiltration_front_position",
+    description=infiltration_front_position_instruction,
+    tags={"permeability", "scalar_calculation"}
+)
+async def calculate_infiltration_front_position_tool(
+        K: Annotated[float, K_meaning],
+        mu: Annotated[float, mu_meaning],
+        phi: Annotated[float, phi_meaning],
+        dP: Annotated[float, dP_meaning],
+        t: Annotated[float, t_meaning],
+) -> dict:
+    try:
+        calculation_result = calculate_infiltration_front_position(
+            K=K,
+            mu=mu,
+            phi=phi,
+            t=t,
+            dP=dP
+        )
+        return process_mcp_calculation_result(
+            value=calculation_result,
+            unit="m",
+            meaning=z_meaning
+        )
+    except Exception as e:
+        raise ToolError(e)
+
+
+# Tool for calculating infiltration front position for multiple time points
+@mcp.tool(
+    name="calculate_infiltration_front_position4multiple_times",
+    description=infiltration_front_position_multiple_time_instruction,
+    tags={"permeability", "graph_related"}
+)
+async def calculate_infiltration_front_position4multiple_times_tool(
+    K: Annotated[float, K_meaning],
+        mu: Annotated[float, mu_meaning],
+        phi: Annotated[float, phi_meaning],
+        dP: Annotated[float, dP_meaning],
+        t: Annotated[List[float], multi_t_meaning],
+) -> dict:
+    try:
+        processed_t = np.array(t)
+        calculation_result = calculate_infiltration_front_position_with_multiple_time(
+            K=K,
+            mu=mu,
+            phi=phi,
+            t=processed_t,
+            dP=dP
+        )
+        return process_mcp_calculation_result(
+            value=calculation_result.tolist(),
+            unit="m",
+            meaning=z_meaning
+        )
+    except Exception as e:
+        raise ToolError(e)
 
 
 # Run
