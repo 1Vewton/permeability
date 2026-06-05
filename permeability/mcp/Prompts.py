@@ -23,10 +23,14 @@ Convert Darcy to m^2
 infiltration_front_position_instruction = """
 Calculate infiltration front position at given time(s).
 z(t) = sqrt(2 · K · ΔP · t / (μ · φ))
+If you fill the p_c field that is optional to fill, you will get the result corrected by the capillary pressure:
+z(t) = sqrt(2 · K · (ΔP + p_c) · t / (μ · φ))
 """
 infiltration_front_position_multiple_time_instruction = """
 Calculate infiltration front position at multiple times (for graph making).
 z(t) = sqrt(2 · K · ΔP · t / (μ · φ))
+If you fill the p_c field that is optional to fill, you will get the result corrected by the capillary pressure:
+z(t) = sqrt(2 · K · (ΔP + p_c) · t / (μ · φ))
 """
 capillary_pressure_calculation_instruction = """
 Calculate capillary pressure using the Young-Laplace equation.

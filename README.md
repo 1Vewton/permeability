@@ -1,6 +1,6 @@
 # permeability
 
-A Python package for calculating permeability of porous media using the **seepage distance method**, derived from the Darcy's law-based formula:
+A Python package for calculating permeability of porous media using the **seepage distance method**, derived from the Darcy's law-based formula, with **capillary pressure correction** via the Young-Laplace equation:
 
 $$
 K = \frac{L^2 \cdot \mu \cdot \phi}{2 \cdot t \cdot \Delta P}
@@ -14,6 +14,26 @@ $$
 z(t) = \sqrt{\frac{2 \cdot K \cdot \Delta P \cdot t}{\mu \cdot \phi}}
 $$
 
+$$
+p_c = \frac{2 \cdot \gamma \cdot \cos(\theta)}{r}
+$$
+
+### Capillary-Corrected Forms
+
+When capillary pressure $p_c$ is considered, $\Delta P$ is replaced by $(\Delta P + p_c)$:
+
+$$
+K = \frac{L^2 \cdot \mu \cdot \phi}{2 \cdot t \cdot (\Delta P + p_c)}
+$$
+
+$$
+t = \frac{\mu \cdot \phi \cdot L^2}{2 \cdot K \cdot (\Delta P + p_c)}
+$$
+
+$$
+z(t) = \sqrt{\frac{2 \cdot K \cdot (\Delta P + p_c) \cdot t}{\mu \cdot \phi}}
+$$
+
 | Symbol | Meaning | Unit |
 |--------|---------|------|
 | $K$ | Permeability | m² |
@@ -23,6 +43,10 @@ $$
 | $t$ | Time for fluid to fully penetrate sample | s |
 | $\Delta P$ | Constant pressure difference across sample | Pa |
 | $z$ | Infiltration front position | m |
+| $p_c$ | Capillary pressure | Pa |
+| $\gamma$ | Surface tension of the liquid | N/m |
+| $\theta$ | Contact angle (wetting angle) | Degrees |
+| $r$ | Equivalent pore radius | m |
 
 This package also provides an **MCP server** that exposes these calculations as tools for AI assistants like Claude.
 
@@ -98,6 +122,35 @@ z_array = Seepage.calculate_infiltration_front_position_with_multiple_time(
     t=np.array([0, 30, 120])
 )
 print(f"Front positions: {z_array}")  # [0.0, 0.0025, 0.005]
+```
+
+### Calculate Capillary Pressure
+
+```python
+from permeability.permeability.Capillary import calculate_capillary_pressure
+
+# Capillary pressure via Young-Laplace equation
+p_c = calculate_capillary_pressure(
+    gamma=0.072,  # Surface tension of water: 0.072 N/m
+    theta=30,     # Contact angle: 30 degrees
+    r=1e-6        # Pore radius: 1 µm
+)
+print(f"Capillary pressure: {p_c:.2f} Pa")  # ~124.71 Pa
+```
+
+### Permeability with Capillary Correction
+
+```python
+# Calculate permeability considering capillary pressure
+K_corrected = Seepage.calculate_permeability(
+    L=0.003,
+    mu=0.192,
+    phi=0.445,
+    t=100,
+    dP=1e4,
+    p_c=124.71  # Capillary pressure (Pa)
+)
+print(f"Corrected permeability: {K_corrected:.3e} m²")
 ```
 
 ### Unit Conversion
@@ -178,10 +231,11 @@ Once the MCP server is running, AI assistants can call:
 
 | Tool | Description |
 |------|-------------|
-| `calculate_permeability_by_seepage_distance` | Calculate $K = L^2 \cdot \mu \cdot \phi \,/\, (2 \cdot t \cdot \Delta P)$ |
-| `calculate_infiltration_time` | Calculate $t = \mu \cdot \phi \cdot L^2 \,/\, (2 \cdot K \cdot \Delta P)$ |
-| `calculate_infiltration_front_position` | Calculate $z(t) = \sqrt{2 \cdot K \cdot \Delta P \cdot t \,/\, (\mu \cdot \phi)}$ |
-| `calculate_infiltration_front_position4multiple_times` | Calculate $z(t)$ for multiple time points (for graphing) |
+| `calculate_permeability_by_seepage_distance` | Calculate $K$ (optionally with capillary correction via $p_c$) |
+| `calculate_infiltration_time` | Calculate $t$ (optionally with capillary correction via $p_c$) |
+| `calculate_infiltration_front_position` | Calculate $z(t)$ (optionally with capillary correction via $p_c$) |
+| `calculate_infiltration_front_position4multiple_times` | Calculate $z(t)$ for multiple time points (optionally with capillary correction via $p_c$) |
+| `calculate_capillary_pressure` | Calculate $p_c = 2\gamma\cos(\theta)\,/\,r$ (Young-Laplace equation) |
 | `darcy_to_m2_converter` | Convert Darcy to m² |
 | `m2_to_darcy_converter` | Convert m² to Darcy |
 
@@ -191,12 +245,14 @@ Each tool accepts the same parameters as the Python API.
 
 ## API Reference
 
-### `Seepage.calculate_permeability(L, mu, phi, t, dP)`
+### `Seepage.calculate_permeability(L, mu, phi, t, dP, p_c=None)`
 
-Calculate permeability from seepage distance experiment data.
+Calculate permeability from seepage distance experiment data. When $p_c$ is provided, the capillary-corrected form is used.
 
 $$
 K = \frac{L^2 \cdot \mu \cdot \phi}{2 \cdot t \cdot \Delta P}
+\qquad\text{or}\qquad
+K = \frac{L^2 \cdot \mu \cdot \phi}{2 \cdot t \cdot (\Delta P + p_c)}
 $$
 
 | Parameter | Type | Description |
@@ -206,17 +262,20 @@ $$
 | `phi` | float | Porosity of porous medium ($0 < \phi \le 1$) |
 | `t` | float | Total time for fluid to fully penetrate sample (s) |
 | `dP` | float | Constant pressure difference across sample (Pa) |
+| `p_c` | float, optional | Capillary pressure for correction (Pa) |
 
 **Returns:** `float` — Permeability $K$ (m²)
 
 ---
 
-### `Seepage.calculate_infiltration_time(L, mu, phi, K, dP)`
+### `Seepage.calculate_infiltration_time(L, mu, phi, K, dP, p_c=None)`
 
-Predict the time required for fluid to fully penetrate a sample.
+Predict the time required for fluid to fully penetrate a sample. When $p_c$ is provided, the capillary-corrected form is used.
 
 $$
 t = \frac{\mu \cdot \phi \cdot L^2}{2 \cdot K \cdot \Delta P}
+\qquad\text{or}\qquad
+t = \frac{\mu \cdot \phi \cdot L^2}{2 \cdot K \cdot (\Delta P + p_c)}
 $$
 
 | Parameter | Type | Description |
@@ -226,17 +285,20 @@ $$
 | `phi` | float | Porosity of porous medium ($0 < \phi \le 1$) |
 | `K` | float | Permeability (m²) |
 | `dP` | float | Constant pressure difference across sample (Pa) |
+| `p_c` | float, optional | Capillary pressure for correction (Pa) |
 
 **Returns:** `float` — Infiltration time $t$ (s)
 
 ---
 
-### `Seepage.calculate_infiltration_front_position(K, mu, phi, dP, t)`
+### `Seepage.calculate_infiltration_front_position(K, mu, phi, dP, t, p_c=None)`
 
-Calculate the infiltration front position at a given time.
+Calculate the infiltration front position at a given time. When $p_c$ is provided, the capillary-corrected form is used.
 
 $$
 z(t) = \sqrt{\frac{2 \cdot K \cdot \Delta P \cdot t}{\mu \cdot \phi}}
+\qquad\text{or}\qquad
+z(t) = \sqrt{\frac{2 \cdot K \cdot (\Delta P + p_c) \cdot t}{\mu \cdot \phi}}
 $$
 
 | Parameter | Type | Description |
@@ -246,17 +308,20 @@ $$
 | `phi` | float | Porosity of porous medium ($0 < \phi \le 1$) |
 | `dP` | float | Constant pressure difference across sample (Pa) |
 | `t` | float | Time elapsed (s) |
+| `p_c` | float, optional | Capillary pressure for correction (Pa) |
 
 **Returns:** `float` — Infiltration front position $z$ (m)
 
 ---
 
-### `Seepage.calculate_infiltration_front_position_with_multiple_time(K, mu, phi, dP, t)`
+### `Seepage.calculate_infiltration_front_position_with_multiple_time(K, mu, phi, dP, t, p_c=None)`
 
-Calculate the infiltration front position at multiple time points (useful for plotting).
+Calculate the infiltration front position at multiple time points (useful for plotting). When $p_c$ is provided, the capillary-corrected form is used.
 
 $$
 z(t) = \sqrt{\frac{2 \cdot K \cdot \Delta P \cdot t}{\mu \cdot \phi}}
+\qquad\text{or}\qquad
+z(t) = \sqrt{\frac{2 \cdot K \cdot (\Delta P + p_c) \cdot t}{\mu \cdot \phi}}
 $$
 
 | Parameter | Type | Description |
@@ -266,8 +331,27 @@ $$
 | `phi` | float | Porosity of porous medium ($0 < \phi \le 1$) |
 | `dP` | float | Constant pressure difference across sample (Pa) |
 | `t` | numpy.ndarray | Array of time values (s) |
+| `p_c` | float, optional | Capillary pressure for correction (Pa) |
 
 **Returns:** `numpy.ndarray` — Array of infiltration front positions $z$ (m)
+
+---
+
+### `calculate_capillary_pressure(gamma, theta, r)`
+
+Calculate capillary pressure using the **Young-Laplace equation**.
+
+$$
+p_c = \frac{2 \cdot \gamma \cdot \cos(\theta)}{r}
+$$
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `gamma` | float | Surface tension of the liquid (N/m) |
+| `theta` | float | Contact angle / wetting angle (Degrees) |
+| `r` | float | Equivalent pore radius (m) |
+
+**Returns:** `float` — Capillary pressure $p_c$ (Pa)
 
 ---
 

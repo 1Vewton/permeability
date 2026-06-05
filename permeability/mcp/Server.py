@@ -45,6 +45,8 @@ from permeability.permeability.Seepage import (
 from permeability.permeability.Capillary import (
     calculate_permeability_with_capillary_correction,
     calculate_infiltration_time_with_capillary_correction,
+    calculate_infiltration_front_position_with_capillary_correction,
+    calculate_infiltration_front_position_with_multiple_time_with_capillary_correction,
     calculate_capillary_pressure
 )
 from permeability.utils.UnitConverter import (
@@ -190,15 +192,26 @@ async def calculate_infiltration_front_position_tool(
         phi: Annotated[float, phi_meaning],
         dP: Annotated[float, dP_meaning],
         t: Annotated[float, t_meaning],
+        p_c: Optional[Annotated[float, p_c_meaning]] = None
 ) -> dict:
     try:
-        calculation_result = calculate_infiltration_front_position(
-            K=K,
-            mu=mu,
-            phi=phi,
-            t=t,
-            dP=dP
-        )
+        if p_c is None:
+            calculation_result = calculate_infiltration_front_position(
+                K=K,
+                mu=mu,
+                phi=phi,
+                t=t,
+                dP=dP
+            )
+        else:
+            calculation_result = calculate_infiltration_front_position_with_capillary_correction(
+                K=K,
+                mu=mu,
+                phi=phi,
+                t=t,
+                dP=dP,
+                p_c=p_c
+            )
         return process_mcp_calculation_result(
             value=calculation_result,
             unit="m",
@@ -220,16 +233,29 @@ async def calculate_infiltration_front_position4multiple_times_tool(
         phi: Annotated[float, phi_meaning],
         dP: Annotated[float, dP_meaning],
         t: Annotated[List[float], multi_t_meaning],
+        p_c: Optional[Annotated[float, p_c_meaning]] = None
 ) -> dict:
     try:
         processed_t = np.array(t)
-        calculation_result = calculate_infiltration_front_position_with_multiple_time(
-            K=K,
-            mu=mu,
-            phi=phi,
-            t=processed_t,
-            dP=dP
-        )
+        if p_c is None:
+            calculation_result = calculate_infiltration_front_position_with_multiple_time(
+                K=K,
+                mu=mu,
+                phi=phi,
+                t=processed_t,
+                dP=dP
+            )
+        else:
+            calculation_result = (
+                calculate_infiltration_front_position_with_multiple_time_with_capillary_correction(
+                    K=K,
+                    mu=mu,
+                    phi=phi,
+                    t=processed_t,
+                    dP=dP,
+                    p_c=p_c
+                )
+            )
         return process_mcp_calculation_result(
             value=calculation_result.tolist(),
             unit="m",
