@@ -28,6 +28,10 @@ infiltration_front_position_multiple_time_instruction = """
 Calculate infiltration front position at multiple times (for graph making).
 z(t) = sqrt(2 · K · ΔP · t / (μ · φ))
 """
+capillary_pressure_calculation_instruction = """
+Calculate capillary pressure using the Young-Laplace equation.
+pc = 2 · γ · cos(θ) / r
+"""
 # Seepage Distance Calculation
 L_meaning = "Sample length/thickness along flow direction (m)"
 mu_meaning = "Dynamic viscosity of the fluid (Pa·s)"
@@ -40,3 +44,6 @@ m2K_meaning = "Permeability in m^2"
 darcyK_meaning = "Permeability in Darcy"
 z_meaning = "Infiltration front position at given time(s)"
 p_c_meaning = "Capillary pressure (Pa)"
+theta_meaning = "Contact angle (wetting angle) (Degrees)"
+gamma_meaning = "Surface tension of the liquid (N/m)"
+r_meaning = "Equivalent pore radius (m)"

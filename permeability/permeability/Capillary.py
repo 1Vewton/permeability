@@ -8,7 +8,7 @@ def calculate_capillary_pressure(
 ) -> float:
     '''
     Calculate capillary pressure using the Young-Laplace equation.
-    pc = 2 · γ · cos(θ) / r
+    p_c = 2 · γ · cos(θ) / r
     :param gamma: Surface tension of the liquid (N/m)
     :param theta: Contact angle (wetting angle) (Degrees)
     :param r: Equivalent pore radius (m)

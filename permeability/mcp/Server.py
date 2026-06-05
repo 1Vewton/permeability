@@ -20,6 +20,7 @@ from permeability.mcp.Prompts import (
     m22darcy_instruction,
     infiltration_front_position_instruction,
     infiltration_front_position_multiple_time_instruction,
+    capillary_pressure_calculation_instruction,
     L_meaning,
     mu_meaning,
     phi_meaning,
@@ -30,7 +31,10 @@ from permeability.mcp.Prompts import (
     darcyK_meaning,
     m2K_meaning,
     z_meaning,
-    p_c_meaning
+    p_c_meaning,
+    gamma_meaning,
+    theta_meaning,
+    r_meaning
 )
 from permeability.permeability.Seepage import (
     calculate_permeability,
@@ -40,7 +44,8 @@ from permeability.permeability.Seepage import (
 )
 from permeability.permeability.Capillary import (
     calculate_permeability_with_capillary_correction,
-    calculate_infiltration_time_with_capillary_correction
+    calculate_infiltration_time_with_capillary_correction,
+    calculate_capillary_pressure
 )
 from permeability.utils.UnitConverter import (
     darcy2m2,
@@ -207,7 +212,7 @@ async def calculate_infiltration_front_position_tool(
 @mcp.tool(
     name="calculate_infiltration_front_position4multiple_times",
     description=infiltration_front_position_multiple_time_instruction,
-    tags={"permeability", "graph_related"}
+    tags={"permeability", "graph_related", "vector_calculation"}
 )
 async def calculate_infiltration_front_position4multiple_times_tool(
     K: Annotated[float, K_meaning],
@@ -229,6 +234,32 @@ async def calculate_infiltration_front_position4multiple_times_tool(
             value=calculation_result.tolist(),
             unit="m",
             meaning=z_meaning
+        )
+    except Exception as e:
+        raise ToolError(e)
+
+
+# Calculate capillary pressure
+@mcp.tool(
+    name="calculate_capillary_pressure",
+    description=capillary_pressure_calculation_instruction,
+    tags={"permeability", "scalar_calculation"}
+)
+async def calculate_capillary_pressure_tool(
+        theta: Annotated[float, theta_meaning],
+        r: Annotated[float, r_meaning],
+        gamma: Annotated[float, gamma_meaning],
+):
+    try:
+        calculation_result = calculate_capillary_pressure(
+            theta=theta,
+            r=r,
+            gamma=gamma
+        )
+        return process_mcp_calculation_result(
+            value=calculation_result,
+            unit="Pa",
+            meaning=p_c_meaning
         )
     except Exception as e:
         raise ToolError(e)
