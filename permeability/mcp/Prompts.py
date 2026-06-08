@@ -36,6 +36,12 @@ capillary_pressure_calculation_instruction = """
 Calculate capillary pressure using the Young-Laplace equation.
 pc = 2 · γ · cos(θ) / r
 """
+pressure_difference_calculation_instruction = """
+Calculate pressure difference using the seepage distance method.
+ΔP = μ · φ · L² / (2 · K · t)
+If you fill the p_c field that is optional to fill, you will get the result corrected by the capillary pressure:
+ΔP = μ · φ · L² / (2 · K · t) - p_c
+"""
 # Seepage Distance Calculation
 L_meaning = "Sample length/thickness along flow direction (m)"
 mu_meaning = "Dynamic viscosity of the fluid (Pa·s)"

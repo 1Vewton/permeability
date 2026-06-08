@@ -21,6 +21,7 @@ from permeability.mcp.Prompts import (
     infiltration_front_position_instruction,
     infiltration_front_position_multiple_time_instruction,
     capillary_pressure_calculation_instruction,
+    pressure_difference_calculation_instruction,
     L_meaning,
     mu_meaning,
     phi_meaning,
@@ -40,14 +41,16 @@ from permeability.permeability.Seepage import (
     calculate_permeability,
     calculate_infiltration_time,
     calculate_infiltration_front_position,
-    calculate_infiltration_front_position_with_multiple_time
+    calculate_infiltration_front_position_with_multiple_time,
+    calculate_pressure_difference
 )
 from permeability.permeability.Capillary import (
     calculate_permeability_with_capillary_correction,
     calculate_infiltration_time_with_capillary_correction,
     calculate_infiltration_front_position_with_capillary_correction,
     calculate_infiltration_front_position_with_multiple_time_with_capillary_correction,
-    calculate_capillary_pressure
+    calculate_capillary_pressure,
+    calculate_pressure_difference_with_capillary_correction
 )
 from permeability.utils.UnitConverter import (
     darcy2m2,
@@ -286,6 +289,47 @@ async def calculate_capillary_pressure_tool(
             value=calculation_result,
             unit="Pa",
             meaning=p_c_meaning
+        )
+    except Exception as e:
+        raise ToolError(e)
+
+
+# Calculate pressure difference
+@mcp.tool(
+    name="calculate_pressure_difference",
+    description=pressure_difference_calculation_instruction,
+    tags={"permeability", "scalar_calculation"}
+)
+async def calculate_pressure_difference_tool(
+        L: Annotated[float, L_meaning],
+        mu: Annotated[float, mu_meaning],
+        phi: Annotated[float, phi_meaning],
+        K: Annotated[float, K_meaning],
+        t: Annotated[float, t_meaning],
+        p_c: Optional[Annotated[float, p_c_meaning]] = None,
+):
+    try:
+        if p_c is None:
+            calculation_result = calculate_pressure_difference(
+                L=L,
+                mu=mu,
+                phi=phi,
+                K=K,
+                t=t
+            )
+        else:
+            calculation_result = calculate_pressure_difference_with_capillary_correction(
+                L=L,
+                mu=mu,
+                phi=phi,
+                K=K,
+                t=t,
+                p_c=p_c
+            )
+        return process_mcp_calculation_result(
+            value=calculation_result,
+            unit="Pa",
+            meaning=dP_meaning
         )
     except Exception as e:
         raise ToolError(e)

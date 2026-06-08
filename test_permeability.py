@@ -1,7 +1,9 @@
 import pytest
 import numpy as np
 # Project dependencies
-from permeability.permeability import Seepage
+from permeability.permeability import (
+    Seepage,
+)
 from permeability.utils.UnitConverter import (
     darcy2m2,
     m22darcy
@@ -36,6 +38,17 @@ def test_permeability_time():
         dP=dP
     )
     assert result == pytest.approx(1e2)
+
+
+def test_permeability_dP():
+    result = Seepage.calculate_pressure_difference(
+        K=K,
+        L=L,
+        mu=mu,
+        phi=phi,
+        t=t
+    )
+    assert result == pytest.approx(dP)
 
 
 def test_darcy_m2():
