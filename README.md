@@ -34,6 +34,14 @@ $$
 z(t) = \sqrt{\frac{2 \cdot K \cdot (\Delta P + p_c) \cdot t}{\mu \cdot \phi}}
 $$
 
+$$
+\Delta P = \frac{\mu \cdot \phi \cdot L^2}{2 \cdot K \cdot t}
+$$
+
+$$
+\Delta P = \frac{\mu \cdot \phi \cdot L^2}{2 \cdot K \cdot t} - p_c
+$$
+
 | Symbol | Meaning | Unit |
 |--------|---------|------|
 | $K$ | Permeability | m² |
@@ -153,6 +161,31 @@ K_corrected = Seepage.calculate_permeability(
 print(f"Corrected permeability: {K_corrected:.3e} m²")
 ```
 
+### Calculate Pressure Difference
+
+```python
+# Calculate the pressure difference applied across the sample
+dP = Seepage.calculate_pressure_difference(
+    L=0.003,
+    mu=0.192,
+    phi=0.445,
+    K=3.8448e-13,
+    t=100
+)
+print(f"Pressure difference: {dP:.2f} Pa")  # ~10000.00 Pa
+
+# With capillary correction
+dP_corrected = Seepage.calculate_pressure_difference(
+    L=0.003,
+    mu=0.192,
+    phi=0.445,
+    K=3.8448e-13,
+    t=100,
+    p_c=124.71  # Capillary pressure (Pa)
+)
+print(f"Corrected pressure difference: {dP_corrected:.2f} Pa")
+```
+
 ### Unit Conversion
 
 ```python
@@ -171,23 +204,11 @@ print(f"Permeability: {m2:.3e} m²")  # ~3.845e-13 m²
 
 ## MCP Server
 
-The package includes a **Model Context Protocol (MCP) server** that exposes permeability calculations as AI-accessible tools.
+The package includes a **Model Context Protocol (MCP) server** that exposes permeability calculations as AI-accessible tools. After [installing the package](#installation), start the server with:
 
 ### Starting the Server
 
-#### Option 1: Using uv (no installation required)
-
-```bash
-# Default port 8000
-uv run permeability_mcp
-
-# Custom port
-uv run permeability_mcp --port 8080
-```
-
-This starts the server via HTTP/SSE transport (`http://localhost:8000` by default).
-
-#### Option 2: After installation
+Once installed, simply run:
 
 ```bash
 # Default port 8000
@@ -197,7 +218,15 @@ permeability_mcp
 permeability_mcp --port 8080
 ```
 
-### MCP Configuration for AI Assistants
+The server starts via HTTP/SSE transport (`http://localhost:8000` by default).
+
+If you prefer to try it without installing, you can also use:
+
+```bash
+uvx --from permeability permeability_mcp
+```
+
+### Configuration for AI Assistants
 
 #### For **Claude Desktop**, add to your `claude_desktop_config.json`:
 
@@ -205,8 +234,8 @@ permeability_mcp --port 8080
 {
   "mcpServers": {
     "permeability": {
-      "command": "uv",
-      "args": ["run", "permeability_mcp", "--port", "8080"]
+      "command": "permeability_mcp",
+      "args": ["--port", "8080"]
     }
   }
 }
@@ -218,8 +247,8 @@ permeability_mcp --port 8080
 {
   "mcpServers": {
     "permeability": {
-      "command": "uv",
-      "args": ["run", "permeability_mcp", "--port", "8080"]
+      "command": "permeability_mcp",
+      "args": ["--port", "8080"]
     }
   }
 }
@@ -236,6 +265,7 @@ Once the MCP server is running, AI assistants can call:
 | `calculate_infiltration_front_position` | Calculate $z(t)$ (optionally with capillary correction via $p_c$) |
 | `calculate_infiltration_front_position4multiple_times` | Calculate $z(t)$ for multiple time points (optionally with capillary correction via $p_c$) |
 | `calculate_capillary_pressure` | Calculate $p_c = 2\gamma\cos(\theta)\,/\,r$ (Young-Laplace equation) |
+| `calculate_pressure_difference` | Calculate $\Delta P$ (optionally with capillary correction via $p_c$) |
 | `darcy_to_m2_converter` | Convert Darcy to m² |
 | `m2_to_darcy_converter` | Convert m² to Darcy |
 
@@ -334,6 +364,29 @@ $$
 | `p_c` | float, optional | Capillary pressure for correction (Pa) |
 
 **Returns:** `numpy.ndarray` — Array of infiltration front positions $z$ (m)
+
+---
+
+### `Seepage.calculate_pressure_difference(L, mu, phi, K, t, p_c=None)`
+
+Calculate the pressure difference across a sample. When $p_c$ is provided, the capillary-corrected form is used.
+
+$$
+\Delta P = \frac{\mu \cdot \phi \cdot L^2}{2 \cdot K \cdot t}
+\qquad\text{or}\qquad
+\Delta P = \frac{\mu \cdot \phi \cdot L^2}{2 \cdot K \cdot t} - p_c
+$$
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `L` | float | Sample length/thickness along flow direction (m) |
+| `mu` | float | Dynamic viscosity of fluid (Pa·s) |
+| `phi` | float | Porosity of porous medium ($0 < \phi \le 1$) |
+| `K` | float | Permeability (m²) |
+| `t` | float | Total time for fluid to fully penetrate sample (s) |
+| `p_c` | float, optional | Capillary pressure for correction (Pa) |
+
+**Returns:** `float` — Pressure difference $\Delta P$ (Pa)
 
 ---
 
