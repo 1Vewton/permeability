@@ -1,5 +1,7 @@
 # permeability
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/owner/repo)
+
 A Python package for calculating permeability of porous media using the **seepage distance method**, derived from the Darcy's law-based formula, with **capillary pressure correction** via the Young-Laplace equation:
 
 $$
