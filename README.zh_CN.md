@@ -200,6 +200,98 @@ m2 = darcy2m2(darcyK=0.3896)
 print(f"渗透率: {m2:.3e} m²")  # ~3.845e-13 m²
 ```
 
+### 各向异性渗透率张量
+
+对于正交各向异性材料（如编织复合材料），`PermeabilityTensor` 类表示对角渗透率张量 $K = \text{diag}(K_x, K_y, K_z)$。
+
+```python
+from permeability.permeability.AnisotropicTensor import PermeabilityTensor
+
+# 从主方向值构造（正交各向异性）
+tensor = PermeabilityTensor.from_principal_values(
+    Kx=1e-12,  # x方向（经纱/纤维方向）(m²)
+    Ky=5e-13,  # y方向（纬纱方向）(m²)
+    Kz=1e-13   # z方向（厚度方向）(m²)
+)
+
+# 各向同性张量
+iso_tensor = PermeabilityTensor.from_isotopic(K=1e-12)
+
+# 横向各向同性（如单向纤维束）
+trans_tensor = PermeabilityTensor.from_transversely_isotropic(
+    K_in_plane=1e-12,
+    K_out_plane=1e-13
+)
+```
+
+**张量属性**
+
+```python
+# 3x3 对角矩阵
+print(tensor.tensor)
+
+# 平均面内渗透率 (Kx + Ky) / 2
+print(f"面内平均: {tensor.in_plane_average:.3e} m²")
+
+# 各向异性比率 β = 面内平均 / Kz
+print(f"各向异性比率: {tensor.anisotropy_ratio:.2f}")
+
+# 各向异性度（0 = 各向同性，1 = 完全各向异性）
+print(f"各向异性度: {tensor.degree_of_anisotropy:.3f}")
+
+# 导出为字典
+print(tensor.to_dict())
+```
+
+**各向异性介质中的达西速度**
+
+```python
+import numpy as np
+
+# 达西速度: v = -(1/μ) · K · ∇p
+grad_p = np.array([1000, 500, 100])  # 压力梯度 (Pa/m)
+v = tensor.darcy_velocity(grad_p=grad_p, mu=0.192)
+print(f"达西速度: {v} m/s")
+```
+
+**指定方向的有效渗透率**
+
+```python
+# 沿主方向
+print(tensor.effective_permeability_in_direction(direction='x'))
+print(tensor.effective_permeability_in_direction(direction='xy'))  # 面内平均
+
+# 任意方向
+n = np.array([1, 1, 0])  # 任意方向向量
+print(tensor.effective_permeability_in_direction(direction_vector=n))
+```
+
+### 各向异性达西通量
+
+`anisotropic_darcy_flux` 函数计算各向异性介质中的达西通量及相关量。
+
+```python
+from permeability.permeability.AnisotropicTensor import (
+    PermeabilityTensor,
+    anisotropic_darcy_flux
+)
+
+tensor = PermeabilityTensor.from_principal_values(
+    Kx=1e-12, Ky=5e-13, Kz=1e-13
+)
+
+result = anisotropic_darcy_flux(
+    tensor=tensor,
+    grad_p=np.array([1000, 500, 100]),  # Pa/m
+    mu=0.192,                            # Pa·s
+    area_normal=np.array([1, 0, 0])      # 可选：截面单位法向量
+)
+print(f"达西速度: {result['darcy_velocity']} m/s")
+print(f"通量大小: {result['flux_magnitude']:.3e} m/s")
+print(f"速度与压力梯度的夹角: {result['velocity_angle_from_gradP_deg']:.2f}°")
+print(f"面通量: {result['area_flux']:.3e} m³/s per m²")
+```
+
 ---
 
 ## MCP 服务器
@@ -266,10 +358,11 @@ MCP 服务器运行后，AI 助手可以调用以下工具：
 | `calculate_infiltration_front_position4multiple_times` | 计算多个时间点的 $z(t)$（可通过 $p_c$ 进行毛细管修正） |
 | `calculate_capillary_pressure` | 计算 $p_c = 2\gamma\cos(\theta)\,/\,r$（Young-Laplace 方程） |
 | `calculate_pressure_difference` | 计算 $\Delta P$（可通过 $p_c$ 进行毛细管修正） |
-| `darcy_to_m2_converter` | 将 Darcy 转换为 m² |
-| `m2_to_darcy_converter` | 将 m² 转换为 Darcy |
+| `darcy_m2_converter` | 双向转换：Darcy 转 m² 和/或 m² 转 Darcy |
+| `calculate_darcy_flux_tool` | 计算各向异性介质中的达西通量；接受主方向值、各向同性或横向各向同性的渗透率张量 |
 
 每个工具接受与 Python API 相同的参数。
+
 
 ---
 
@@ -432,7 +525,129 @@ $$
 
 ---
 
+### `PermeabilityTensor(Kx, Ky, Kz)`
+
+用于二维编织复合材料的各向异性渗透率张量。表示对角渗透率张量 $K = \text{diag}(K_x, K_y, K_z)$。
+
+| 参数 | 类型 | 描述 |
+|-----------|------|-------------|
+| `Kx` | float | x方向（经纱/纤维方向）渗透率 (m²) |
+| `Ky` | float | y方向（纬纱方向）渗透率 (m²) |
+| `Kz` | float | z方向（厚度方向）渗透率 (m²) |
+
+#### 类方法
+
+**`PermeabilityTensor.from_principal_values(Kx, Ky, Kz)`**
+
+从主方向渗透率构造张量（正交各向异性材料）。
+
+**`PermeabilityTensor.from_isotopic(K)`**
+
+构造各向同性渗透率张量，其中 $K_x = K_y = K_z = K$。
+
+**`PermeabilityTensor.from_transversely_isotropic(K_in_plane, K_out_plane)`**
+
+构造横向各向同性渗透率张量，其中 $K_x = K_y = K_\text{面内}$, $K_z = K_\text{面外}$（适用于单向纤维束）。
+
+#### 属性
+
+| 属性 | 返回类型 | 描述 |
+|----------|-------------|-------------|
+| `tensor` | `numpy.ndarray` | 完整的 3x3 对角张量矩阵 |
+| `in_plane_average` | `float` | 平均面内渗透率 $(K_x + K_y)\,/\,2$ (m²) |
+| `anisotropy_ratio` | `float` | 各向异性比率 $\beta = \text{面内平均}\,/\,K_z$ |
+| `degree_of_anisotropy` | `float` | 各向异性度（0 = 各向同性，1 = 完全各向异性） |
+
+#### 方法
+
+**`darcy_velocity(grad_p, mu)`**
+
+计算达西速度向量 $v = -(1/\mu) \cdot K \cdot \nabla p$。
+
+| 参数 | 类型 | 描述 |
+|-----------|------|-------------|
+| `grad_p` | numpy.ndarray | 压力梯度向量 (Pa/m)，形状 (3,) |
+| `mu` | float | 动力粘度 (Pa·s) |
+
+**返回：** `numpy.ndarray` — 达西速度向量 (m/s)，形状 (3,)
+
+**`effective_permeability_in_direction(direction=None, direction_vector=None)`**
+
+计算指定方向的有效渗透率。对于方向单位向量 $n$, $K_\text{eff} = n^T \cdot K \cdot n$。
+
+| 参数 | 类型 | 描述 |
+|-----------|------|-------------|
+| `direction` | str, 可选 | 可选值为 `'x'`, `'y'`, `'z'`, `'xy'`（面内）, 或 `'avg'` |
+| `direction_vector` | numpy.ndarray, 可选 | 任意方向单位向量，形状 (3,) |
+
+**返回：** `float` — 指定方向的有效渗透率 (m²)
+
+**`rotate(R)`**
+
+通过旋转矩阵 $R$ 旋转渗透率张量: $K' = R \cdot K \cdot R^T$。
+
+| 参数 | 类型 | 描述 |
+|-----------|------|-------------|
+| `R` | numpy.ndarray | 正交旋转矩阵 (3x3) |
+
+**返回：** `PermeabilityTensor` 或 `FullTensor` — 旋转后的张量（若非对角项可忽略则返回对角张量）
+
+**`to_dict()`**
+
+将张量数据导出为字典，键为：`Kx`, `Ky`, `Kz`, `in_plane_average`, `anisotropy_ratio`, `degree_of_anisotropy`。
+
+**返回：** `dict`
+
+---
+
+### `FullTensor(matrix)`
+
+完整的 3x3 对称渗透率张量，包含非对角分量，在坐标旋转后使用。
+
+| 参数 | 类型 | 描述 |
+|-----------|------|-------------|
+| `matrix` | numpy.ndarray | 完整的 3x3 对称张量矩阵 |
+
+#### 属性
+
+| 属性 | 返回类型 | 描述 |
+|----------|-------------|-------------|
+| `principal_values` | `tuple` | 主渗透率值 $(K_1, K_2, K_3)$，降序排列 |
+| `principal_directions` | `numpy.ndarray` | 主渗透率方向（特征向量），形状 (3, 3) |
+
+#### 方法
+
+**`to_principal_tensor()`**
+
+使用特征值转换为主坐标系下的对角 `PermeabilityTensor`。
+
+**返回：** `PermeabilityTensor`
+
+---
+
+### `anisotropic_darcy_flux(tensor, grad_p, mu, area_normal=None)`
+
+计算各向异性介质中的达西通量及相关量。
+
+| 参数 | 类型 | 描述 |
+|-----------|------|-------------|
+| `tensor` | PermeabilityTensor | 各向异性渗透率张量 |
+| `grad_p` | numpy.ndarray | 压力梯度向量 (Pa/m) |
+| `mu` | float | 动力粘度 (Pa·s) |
+| `area_normal` | numpy.ndarray, 可选 | 截面的单位法向量，用于计算通量 |
+
+**返回：** `dict`，包含以下键：
+| 键 | 描述 |
+|-----|-------------|
+| `darcy_velocity` | 达西速度向量 (m/s) |
+| `flux_magnitude` | 达西速度大小 (m/s) |
+| `velocity_angle_from_gradP_deg` | 速度与压力梯度之间的夹角（度） |
+| `area_flux` | 单位面积体积通量 (m³/s per m²)，仅在提供 `area_normal` 时返回 |
+
+---
+
 ## 开发
+
 
 ### 设置
 

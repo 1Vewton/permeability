@@ -203,6 +203,99 @@ m2 = darcy2m2(darcyK=0.3896)
 print(f"Permeability: {m2:.3e} m²")  # ~3.845e-13 m²
 ```
 
+### Anisotropic Permeability Tensor
+
+For orthotropic materials (e.g., woven composites), the `PermeabilityTensor` class represents a diagonal permeability tensor $K = \text{diag}(K_x, K_y, K_z)$.
+
+```python
+from permeability.permeability.AnisotropicTensor import PermeabilityTensor
+
+# Construct from principal values (orthotropic)
+tensor = PermeabilityTensor.from_principal_values(
+
+    Kx=1e-12,  # Warp/fiber direction (m²)
+    Ky=5e-13,  # Weft direction (m²)
+    Kz=1e-13   # Through-thickness direction (m²)
+)
+
+# Isotropic tensor
+iso_tensor = PermeabilityTensor.from_isotopic(K=1e-12)
+
+# Transversely isotropic (e.g., unidirectional fiber bundles)
+trans_tensor = PermeabilityTensor.from_transversely_isotropic(
+    K_in_plane=1e-12,
+    K_out_plane=1e-13
+)
+```
+
+**Tensor Properties**
+
+```python
+# 3x3 diagonal matrix
+print(tensor.tensor)
+
+# Average in-plane permeability (Kx + Ky) / 2
+print(f"In-plane avg: {tensor.in_plane_average:.3e} m²")
+
+# Anisotropy ratio β = in_plane_avg / Kz
+print(f"Anisotropy ratio: {tensor.anisotropy_ratio:.2f}")
+
+# Degree of anisotropy (0 = isotropic, 1 = fully anisotropic)
+print(f"Degree of anisotropy: {tensor.degree_of_anisotropy:.3f}")
+
+# Export to dictionary
+print(tensor.to_dict())
+```
+
+**Darcy Velocity in Anisotropic Media**
+
+```python
+import numpy as np
+
+# Darcy velocity: v = -(1/μ) · K · ∇p
+grad_p = np.array([1000, 500, 100])  # Pressure gradient (Pa/m)
+v = tensor.darcy_velocity(grad_p=grad_p, mu=0.192)
+print(f"Darcy velocity: {v} m/s")
+```
+
+**Effective Permeability in a Direction**
+
+```python
+# Along principal axes
+print(tensor.effective_permeability_in_direction(direction='x'))
+print(tensor.effective_permeability_in_direction(direction='xy'))  # in-plane avg
+
+# In an arbitrary direction
+n = np.array([1, 1, 0])  # arbitrary direction vector
+print(tensor.effective_permeability_in_direction(direction_vector=n))
+```
+
+### Anisotropic Darcy Flux
+
+The `anisotropic_darcy_flux` function computes Darcy flux and related quantities in anisotropic media.
+
+```python
+from permeability.permeability.AnisotropicTensor import (
+    PermeabilityTensor,
+    anisotropic_darcy_flux
+)
+
+tensor = PermeabilityTensor.from_principal_values(
+    Kx=1e-12, Ky=5e-13, Kz=1e-13
+)
+
+result = anisotropic_darcy_flux(
+    tensor=tensor,
+    grad_p=np.array([1000, 500, 100]),  # Pa/m
+    mu=0.192,                            # Pa·s
+    area_normal=np.array([1, 0, 0])      # Optional: unit normal of cross-section
+)
+print(f"Darcy velocity: {result['darcy_velocity']} m/s")
+print(f"Flux magnitude: {result['flux_magnitude']:.3e} m/s")
+print(f"Velocity angle from gradP: {result['velocity_angle_from_gradP_deg']:.2f}°")
+print(f"Area flux: {result['area_flux']:.3e} m³/s per m²")
+```
+
 ---
 
 ## MCP Server
@@ -269,10 +362,11 @@ Once the MCP server is running, AI assistants can call:
 | `calculate_infiltration_front_position4multiple_times` | Calculate $z(t)$ for multiple time points (optionally with capillary correction via $p_c$) |
 | `calculate_capillary_pressure` | Calculate $p_c = 2\gamma\cos(\theta)\,/\,r$ (Young-Laplace equation) |
 | `calculate_pressure_difference` | Calculate $\Delta P$ (optionally with capillary correction via $p_c$) |
-| `darcy_to_m2_converter` | Convert Darcy to m² |
-| `m2_to_darcy_converter` | Convert m² to Darcy |
+| `darcy_m2_converter` | Convert Darcy to m² and/or m² to Darcy (bidirectional) |
+| `calculate_darcy_flux_tool` | Compute Darcy flux in anisotropic media; accepts permeability tensor from principal values, isotropic, or transversely isotropic |
 
 Each tool accepts the same parameters as the Python API.
+
 
 ---
 
@@ -435,7 +529,129 @@ Convert permeability from m² to Darcy.
 
 ---
 
+### `PermeabilityTensor(Kx, Ky, Kz)`
+
+Anisotropic permeability tensor for 2D woven composites. Represents a diagonal permeability tensor $K = \text{diag}(K_x, K_y, K_z)$.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `Kx` | float | Permeability in x-direction (warp/fiber direction) (m²) |
+| `Ky` | float | Permeability in y-direction (weft direction) (m²) |
+| `Kz` | float | Permeability in z-direction (through-thickness) (m²) |
+
+#### Class Methods
+
+**`PermeabilityTensor.from_principal_values(Kx, Ky, Kz)`**
+
+Construct tensor from principal direction permeabilities (orthotropic materials).
+
+**`PermeabilityTensor.from_isotopic(K)`**
+
+Construct an isotropic permeability tensor where $K_x = K_y = K_z = K$.
+
+**`PermeabilityTensor.from_transversely_isotropic(K_in_plane, K_out_plane)`**
+
+Construct a transversely isotropic permeability tensor where $K_x = K_y = K_\text{in-plane}$, $K_z = K_\text{out-plane}$ (suitable for unidirectional fiber bundles).
+
+#### Properties
+
+| Property | Return Type | Description |
+|----------|-------------|-------------|
+| `tensor` | `numpy.ndarray` | Full 3x3 diagonal tensor matrix |
+| `in_plane_average` | `float` | Average in-plane permeability $(K_x + K_y)\,/\,2$ (m²) |
+| `anisotropy_ratio` | `float` | Anisotropy ratio $\beta = \text{in\_plane\_avg}\,/\,K_z$ |
+| `degree_of_anisotropy` | `float` | Degree of anisotropy (0 = isotropic, 1 = fully anisotropic) |
+
+#### Methods
+
+**`darcy_velocity(grad_p, mu)`**
+
+Calculate Darcy velocity vector $v = -(1/\mu) \cdot K \cdot \nabla p$.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `grad_p` | numpy.ndarray | Pressure gradient vector (Pa/m), shape (3,) |
+| `mu` | float | Dynamic viscosity (Pa·s) |
+
+**Returns:** `numpy.ndarray` — Darcy velocity vector (m/s), shape (3,)
+
+**`effective_permeability_in_direction(direction=None, direction_vector=None)`**
+
+Calculate effective permeability in a specified direction. For a direction unit vector $n$, $K_\text{eff} = n^T \cdot K \cdot n$.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `direction` | str, optional | One of `'x'`, `'y'`, `'z'`, `'xy'` (in-plane), or `'avg'` |
+| `direction_vector` | numpy.ndarray, optional | Arbitrary unit vector of shape (3,) |
+
+**Returns:** `float` — Effective permeability in the specified direction (m²)
+
+**`rotate(R)`**
+
+Rotate the permeability tensor by rotation matrix $R$: $K' = R \cdot K \cdot R^T$.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `R` | numpy.ndarray | Orthogonal rotation matrix (3x3) |
+
+**Returns:** `PermeabilityTensor` or `FullTensor` — Rotated tensor (diagonal if off-diagonal terms negligible)
+
+**`to_dict()`**
+
+Export tensor data as a dictionary with keys: `Kx`, `Ky`, `Kz`, `in_plane_average`, `anisotropy_ratio`, `degree_of_anisotropy`.
+
+**Returns:** `dict`
+
+---
+
+### `FullTensor(matrix)`
+
+Full 3x3 symmetric permeability tensor with off-diagonal components, used after coordinate rotation.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `matrix` | numpy.ndarray | Full 3x3 symmetric tensor matrix |
+
+#### Properties
+
+| Property | Return Type | Description |
+|----------|-------------|-------------|
+| `principal_values` | `tuple` | Principal permeability values $(K_1, K_2, K_3)$, descending order |
+| `principal_directions` | `numpy.ndarray` | Principal permeability directions (eigenvectors), shape (3, 3) |
+
+#### Methods
+
+**`to_principal_tensor()`**
+
+Convert to diagonal `PermeabilityTensor` in the principal coordinate system using eigenvalues.
+
+**Returns:** `PermeabilityTensor`
+
+---
+
+### `anisotropic_darcy_flux(tensor, grad_p, mu, area_normal=None)`
+
+Compute Darcy flux and related quantities for anisotropic media.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `tensor` | PermeabilityTensor | Anisotropic permeability tensor |
+| `grad_p` | numpy.ndarray | Pressure gradient vector (Pa/m) |
+| `mu` | float | Dynamic viscosity (Pa·s) |
+| `area_normal` | numpy.ndarray, optional | Unit normal vector of cross-section area for flux computation |
+
+**Returns:** `dict` with keys:
+| Key | Description |
+|-----|-------------|
+| `darcy_velocity` | Darcy velocity vector (m/s) |
+| `flux_magnitude` | Magnitude of Darcy velocity (m/s) |
+| `velocity_angle_from_gradP_deg` | Angle between velocity and pressure gradient (degrees) |
+| `area_flux` | Volumetric flux per unit area (m³/s per m²), only if `area_normal` provided |
+
+---
+
 ## Development
+
 
 ### Setup
 
