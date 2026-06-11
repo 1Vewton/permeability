@@ -3,8 +3,8 @@
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/1Vewton/permeability)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/permeability?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/permeability)
 
-[README.zh_CN.md](中文)
-[README.md](English)
+[中文](README.zh_CN.md)
+[English](README.md)
 
 A Python package for calculating permeability of porous media using the **seepage distance method**, derived from the Darcy's law-based formula, with **capillary pressure correction** via the Young-Laplace equation:
 

@@ -3,8 +3,8 @@
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/1Vewton/permeability)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/permeability?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/permeability)
 
-[README.zh_CN.md](中文)
-[README.md](English)
+[中文](README.zh_CN.md)
+[English](README.md)
 
 一个基于 **渗流距离法** 计算多孔介质渗透率的 Python 包，源自达西定律公式，并通过 Young-Laplace 方程进行 **毛细管压力修正**：
 
