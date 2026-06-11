@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Tuple
+from typing import Tuple, Optional
 
 
 class PermeabilityTensor:
@@ -159,6 +159,70 @@ class PermeabilityTensor:
             raise ValueError("mu must be greater than 0")
         return -(1.0 / mu) * (self.tensor @ grad_p)
 
+    def effective_permeability_in_direction(
+            self,
+            direction: Optional[str] = None,
+            direction_vector: Optional[np.ndarray] = None
+    ):
+        """
+        Calculate effective permeability in an arbitrary direction.
+
+        For a direction unit vector n, the effective permeability is:
+        K_eff = n^T · K · n
+        :param direction: one of 'x', 'y', 'z', 'xy' (in-plane), 'avg'
+        :param direction_vector: Unit vector of shape (3,)
+        :return: Effective permeability in the specified direction [m²]
+        """
+        if direction is not None:
+            direction = direction.lower()
+            if direction == 'x':
+                return self.Kx
+            elif direction == 'y':
+                return self.Ky
+            elif direction == 'z':
+                return self.Kz
+            elif direction in ('xy', 'in_plane', 'in-plane'):
+                return self.in_plane_average
+            elif direction == 'avg':
+                return (self.Kx + self.Ky + self.Kz) / 3.0
+            else:
+                raise ValueError(
+                    f"Unknown direction: {direction}. "
+                    "Use: 'x', 'y', 'z', 'xy', or 'avg'."
+                )
+        else:
+            # Arbitrary direction given by unit vector
+            n = np.asarray(direction_vector)
+            if n.shape != (3,):
+                raise ValueError(f"Direction vector must be shape (3,), got {n.shape}")
+            norm = np.linalg.norm(n)
+            if abs(norm - 1.0) > 1e-10:
+                n = n / norm  # Normalize
+            return n @ self.tensor @ n
+
+    def to_dict(self) -> dict:
+        """Export tensor data as a dictionary."""
+        return {
+            'Kx': self.Kx,
+            'Ky': self.Ky,
+            'Kz': self.Kz,
+            'in_plane_average': self.in_plane_average,
+            'anisotropy_ratio': self.anisotropy_ratio,
+            'degree_of_anisotropy': self.degree_of_anisotropy
+        }
+
+    def __repr__(self) -> str:
+        K_avg = (self.Kx + self.Ky + self.Kz) / 3.0
+        return (
+            f"PermeabilityTensor(\n"
+            f"  Kx = {self.Kx:.4e} m²\n"
+            f"  Ky = {self.Ky:.4e} m²\n"
+            f"  Kz = {self.Kz:.4e} m²\n"
+            f"  K_avg = {K_avg:.4e} m²\n"
+            f"  β (anisotropy ratio) = {self.anisotropy_ratio:.2f}\n"
+            f")"
+        )
+
 
 class FullTensor:
     """
@@ -211,3 +275,49 @@ class FullTensor:
         """
         K1, K2, K3 = self.principal_values
         return PermeabilityTensor(Kx=K1, Ky=K2, Kz=K3)
+
+
+def anisotropic_darcy_flux(
+    tensor: PermeabilityTensor,
+    grad_p: np.ndarray,
+    mu: float,
+    area_normal: Optional[np.ndarray] = None
+) -> dict:
+    """
+    Compute Darcy flux and related quantities for anisotropic media.
+    :param tensor: Anisotropic permeability tensor
+    :param grad_p: Pressure gradient vector [Pa/m]
+    :param mu: Dynamic viscosity [Pa·s]
+    :param area_normal: Unit normal vector of the cross-section area.
+                        If provided, computes the flux through that specific plane.
+    :return: Contains 'darcy_velocity' (m/s), 'flux_magnitude' (m/s),
+             'velocity_angle' (deg from pressure gradient direction),
+              and optionally 'area_flux' (m³/s per m² of given area).
+    """
+    # Darcy velocity: v = -(1/μ) · K · ∇p
+    v = tensor.darcy_velocity(grad_p, mu)
+    v_mag = np.linalg.norm(v)
+
+    # Angle between velocity and pressure gradient
+    grad_p_norm = np.linalg.norm(grad_p)
+    if grad_p_norm > 0:
+        cos_angle = np.dot(v, grad_p) / (v_mag * grad_p_norm)
+        cos_angle = np.clip(cos_angle, -1.0, 1.0)
+        angle_deg = np.degrees(np.arccos(cos_angle))
+    else:
+        angle_deg = 0.0
+
+    result = {
+        'darcy_velocity': v,
+        'flux_magnitude': v_mag,
+        'velocity_angle_from_gradP_deg': angle_deg
+    }
+
+    # If area normal is specified, compute flux through that plane
+    if area_normal is not None:
+        n = np.asarray(area_normal)
+        n = n / np.linalg.norm(n)
+        area_flux = np.dot(v, n)  # v · n: volumetric flux per unit area
+        result['area_flux'] = area_flux
+
+    return result

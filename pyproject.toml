@@ -25,4 +25,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project.scripts]
-permeability_mcp = "permeability.mcp.Server:run"
+permeability_mcp = "permeability.permeability_mcp.Server:run"

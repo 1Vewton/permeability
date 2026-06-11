@@ -9,19 +9,24 @@ import numpy as np
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 # Project dependencies
-from permeability.mcp.ProcessResult import (
+from permeability.permeability_mcp.ProcessResult import (
     process_mcp_calculation_result
 )
-from permeability.mcp.Prompts import (
+from permeability.permeability_mcp.DataStructures import (
+    PermeabilityTensorFromPrincipalValues,
+    PermeabilityTensorFromIsotopicPermeability,
+    PermeabilityTensorFromTransverselyIsotopicPermeabilityTensor
+)
+from permeability.permeability_mcp.Prompts import (
     mcp_instruction,
     permeability_calculation_instruction,
     infiltration_time_calculation_instruction,
-    darcy2m2_instruction,
-    m22darcy_instruction,
+    m2darcy_instruction,
     infiltration_front_position_instruction,
     infiltration_front_position_multiple_time_instruction,
     capillary_pressure_calculation_instruction,
     pressure_difference_calculation_instruction,
+    anisotropic_darcy_flux_instruction,
     L_meaning,
     mu_meaning,
     phi_meaning,
@@ -35,7 +40,12 @@ from permeability.mcp.Prompts import (
     p_c_meaning,
     gamma_meaning,
     theta_meaning,
-    r_meaning
+    r_meaning,
+    from_principal_value_meaning,
+    from_isotopic_meaning,
+    from_transversely_isotopic_meaning,
+    grad_p_meaning,
+    area_normal_meaning
 )
 from permeability.permeability.Seepage import (
     calculate_permeability,
@@ -52,13 +62,17 @@ from permeability.permeability.Capillary import (
     calculate_capillary_pressure,
     calculate_pressure_difference_with_capillary_correction
 )
+from permeability.permeability.AnisotropicTensor import (
+    PermeabilityTensor,
+    anisotropic_darcy_flux
+)
 from permeability.utils.UnitConverter import (
     darcy2m2,
     m22darcy
 )
 
 
-# mcp
+# permeability_mcp
 mcp = FastMCP(
     "Permeability MCP",
     strict_input_validation=True,
@@ -151,36 +165,30 @@ async def calculate_infiltration_time_tool(
 
 # Tool for converting darcy to m2
 @mcp.tool(
-    name="darcy_to_m2_converter",
-    description=darcy2m2_instruction,
+    name="darcy_m2_converter",
+    description=m2darcy_instruction,
     tags={"permeability", "unit_converter"}
 )
-async def darcy_to_m2_converter(
-        darcyK: Annotated[float, darcyK_meaning],
+async def darcy_m2_converter(
+        darcyK: Optional[Annotated[float, darcyK_meaning]] = None,
+        m2K: Optional[Annotated[float, m2K_meaning]] = None,
 ) -> dict:
-    calculation_result = darcy2m2(darcyK=darcyK)
-    return process_mcp_calculation_result(
-        value=calculation_result,
-        unit="m^2",
-        meaning=m2K_meaning
-    )
-
-
-# Tool for converting m2 to darcy
-@mcp.tool(
-    name="m2_to_darcy_converter",
-    description=m22darcy_instruction,
-    tags={"permeability", "unit_converter"}
-)
-async def m2_to_darcy_converter(
-        m2K: Annotated[float, m2K_meaning],
-) -> dict:
-    calculation_result = m22darcy(m2K=m2K)
-    return process_mcp_calculation_result(
-        value=calculation_result,
-        unit="Darcy",
-        meaning=darcyK_meaning
-    )
+    result = {}
+    if darcyK is not None:
+        calculation_result = darcy2m2(darcyK=darcyK)
+        result["darcy_converting_result"] = process_mcp_calculation_result(
+            value=calculation_result,
+            unit="m^2",
+            meaning=m2K_meaning
+        )
+    if m2K is not None:
+        calculation_result = m22darcy(m2K=m2K)
+        result["m^2_converting_result"] = process_mcp_calculation_result(
+            value=calculation_result,
+            unit="Darcy",
+            meaning=darcyK_meaning
+        )
+    return result
 
 
 # Tool for calculating infiltration front position
@@ -331,6 +339,71 @@ async def calculate_pressure_difference_tool(
             unit="Pa",
             meaning=dP_meaning
         )
+    except Exception as e:
+        raise ToolError(e)
+
+
+# Calculate darcy flux
+@mcp.tool(
+    name="calculate_darcy_flux_tool",
+    description=anisotropic_darcy_flux_instruction,
+    tags={"vector_calculation"}
+)
+async def calculate_darcy_flux_tool(
+        grad_p: Annotated[List[float], grad_p_meaning],
+        mu: Annotated[float, mu_meaning],
+        area_normal: Optional[Annotated[List[float], area_normal_meaning]] = None,
+        permeability_tensor_from_principal_value: Optional[
+            Annotated[
+                PermeabilityTensorFromPrincipalValues,
+                from_principal_value_meaning,
+            ]
+        ] = None,
+        permeability_tensor_from_isotopic: Optional[
+            Annotated[
+                PermeabilityTensorFromIsotopicPermeability,
+                from_isotopic_meaning,
+            ]
+        ] = None,
+        permeability_tensor_from_transversely_isotopic: Optional[
+            Annotated[
+                PermeabilityTensorFromTransverselyIsotopicPermeabilityTensor,
+                from_transversely_isotopic_meaning,
+            ]
+        ] = None
+):
+    try:
+        permeability_list = {}
+        # Permeability tensor from principal value
+        if permeability_tensor_from_principal_value is not None:
+            permeability_list["tensor_constructed_from_principal_value"] = PermeabilityTensor.from_principal_values(
+                Kx=permeability_tensor_from_principal_value.get("Kx"),
+                Ky=permeability_tensor_from_principal_value.get("Ky"),
+                Kz=permeability_tensor_from_principal_value.get("Kz"),
+            )
+        # Permeability tensor from isotopic permeability
+        if permeability_tensor_from_isotopic is not None:
+            permeability_list["tensor_constructed_from_isotopic"] = PermeabilityTensor.from_isotopic(
+                K=permeability_tensor_from_isotopic.get("K"),
+            )
+        # Permeability tensor from transversely isotopic permeability
+        if permeability_tensor_from_transversely_isotopic is not None:
+            permeability_list["tensor_constructed_from_transversely_isotopic"] = (
+                PermeabilityTensor.from_transversely_isotropic(
+                    K_in_plane=permeability_tensor_from_transversely_isotopic.get("K_in_plane"),
+                    K_out_plane=permeability_tensor_from_transversely_isotopic.get("K_out_plane"),
+                )
+            )
+        # Collect the result
+        result = {}
+        for i in permeability_list.keys():
+            result[i] = anisotropic_darcy_flux(
+                permeability_list[i],
+                grad_p=np.array(grad_p),
+                mu=mu,
+                area_normal=area_normal,
+            )
+        return result
     except Exception as e:
         raise ToolError(e)
 
