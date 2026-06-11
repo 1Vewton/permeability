@@ -62,7 +62,52 @@ $$
 | $\theta$ | 接触角（润湿角） | 度 |
 | $r$ | 等效孔隙半径 | m |
 
+### 各向异性渗透率张量
+
+对于 **正交各向异性介质**（如编织复合材料），渗透率表示为对角张量：
+
+$$
+K = \begin{bmatrix}
+K_x & 0 & 0 \\
+0 & K_y & 0 \\
+0 & 0 & K_z
+\end{bmatrix}
+$$
+
+各向异性介质中的 **达西速度** 为：
+
+$$
+v = -\frac{1}{\mu} \cdot K \cdot \nabla p
+$$
+
+坐标旋转后，张量变换为：
+
+$$
+K' = R \cdot K \cdot R^T
+$$
+
+任意方向（单位向量 $n$）上的 **有效渗透率** 为：
+
+$$
+K_{\text{eff}} = n^T \cdot K \cdot n
+$$
+
+关键的导出量包括 **面内平均值**、**各向异性比** 和 **各向异性度**：
+
+$$
+K_{\text{in-plane}} = \frac{K_x + K_y}{2}, \qquad
+\beta = \frac{K_{\text{in-plane}}}{K_z}, \qquad
+\delta = 1 - \frac{\min(K_x, K_y, K_z)}{\max(K_x, K_y, K_z)}
+$$
+
+对于具有非对角分量的全对称张量 $K$，**主渗透率值** 是其特征值 $K_1 \ge K_2 \ge K_3$，**主方向** 是相应的特征向量，通过特征值分解得到：
+
+$$
+K \cdot \phi_i = K_i \cdot \phi_i
+$$
+
 本包还提供了 **MCP 服务器**，可将这些计算以工具形式暴露给 AI 助手（如 Claude）。
+
 
 ---
 

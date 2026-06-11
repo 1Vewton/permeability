@@ -48,6 +48,50 @@ $$
 \Delta P = \frac{\mu \cdot \phi \cdot L^2}{2 \cdot K \cdot t} - p_c
 $$
 
+### Anisotropic Permeability Tensor
+
+For **orthotropic media** (e.g., woven composites), the permeability is represented as a diagonal tensor:
+
+$$
+K = \begin{bmatrix}
+K_x & 0 & 0 \\
+0 & K_y & 0 \\
+0 & 0 & K_z
+\end{bmatrix}
+$$
+
+The **Darcy velocity** in anisotropic media is:
+
+$$
+v = -\frac{1}{\mu} \cdot K \cdot \nabla p
+$$
+
+After coordinate rotation, the tensor transforms as:
+
+$$
+K' = R \cdot K \cdot R^T
+$$
+
+The **effective permeability** in an arbitrary direction (unit vector $n$) is:
+
+$$
+K_{\text{eff}} = n^T \cdot K \cdot n
+$$
+
+Key derived quantities include the **in-plane average**, **anisotropy ratio**, and **degree of anisotropy**:
+
+$$
+K_{\text{in-plane}} = \frac{K_x + K_y}{2}, \qquad
+\beta = \frac{K_{\text{in-plane}}}{K_z}, \qquad
+\delta = 1 - \frac{\min(K_x, K_y, K_z)}{\max(K_x, K_y, K_z)}
+$$
+
+For a full symmetric tensor $K$ (with off-diagonal components), the **principal permeability values** are its eigenvalues $K_1 \ge K_2 \ge K_3$, and the **principal directions** are the corresponding eigenvectors, obtained via eigenvalue decomposition:
+
+$$
+K \cdot \phi_i = K_i \cdot \phi_i
+$$
+
 | Symbol | Meaning | Unit |
 |--------|---------|------|
 | $K$ | Permeability | m² |
@@ -61,6 +105,7 @@ $$
 | $\gamma$ | Surface tension of the liquid | N/m |
 | $\theta$ | Contact angle (wetting angle) | Degrees |
 | $r$ | Equivalent pore radius | m |
+
 
 This package also provides an **MCP server** that exposes these calculations as tools for AI assistants like Claude.
 
