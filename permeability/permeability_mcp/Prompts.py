@@ -49,6 +49,10 @@ Contains 'darcy_velocity' (m/s), 'flux_magnitude' (m/s),
 'velocity_angle' (deg from pressure gradient direction),
 and optionally 'area_flux' (m³/s per m² of given area).
 """
+anisotropic_evolution_instruction = """
+Analyze the evolution of permeability anisotropy across PIP cycles.
+The return value contains tensors, anisotropy ratios, and cycle-by-cycle data.
+"""
 # Seepage Distance Calculation
 L_meaning = "Sample length/thickness along flow direction (m)"
 mu_meaning = "Dynamic viscosity of the fluid (Pa·s)"
@@ -93,4 +97,10 @@ grad_p_meaning = "Pressure gradient vector (Pa/m)"
 area_normal_meaning = """
 Unit normal vector of the cross-section area.
 If provided, computes the flux through that specific plane.
+"""
+K_values_meaning = """
+Each row is [Kx, Ky, Kz] for one PIP cycle
+"""
+cycles_meaning = """
+PIP cycle numbers
 """

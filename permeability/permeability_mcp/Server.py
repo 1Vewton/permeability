@@ -27,6 +27,7 @@ from permeability.permeability_mcp.Prompts import (
     capillary_pressure_calculation_instruction,
     pressure_difference_calculation_instruction,
     anisotropic_darcy_flux_instruction,
+    anisotropic_evolution_instruction,
     L_meaning,
     mu_meaning,
     phi_meaning,
@@ -45,7 +46,9 @@ from permeability.permeability_mcp.Prompts import (
     from_isotopic_meaning,
     from_transversely_isotopic_meaning,
     grad_p_meaning,
-    area_normal_meaning
+    area_normal_meaning,
+    K_values_meaning,
+    cycles_meaning
 )
 from permeability.permeability.Seepage import (
     calculate_permeability,
@@ -64,7 +67,8 @@ from permeability.permeability.Capillary import (
 )
 from permeability.permeability.AnisotropicTensor import (
     PermeabilityTensor,
-    anisotropic_darcy_flux
+    anisotropic_darcy_flux,
+    anisotropy_evolution
 )
 from permeability.utils.UnitConverter import (
     darcy2m2,
@@ -403,6 +407,26 @@ async def calculate_darcy_flux_tool(
                 mu=mu,
                 area_normal=area_normal,
             )
+        return result
+    except Exception as e:
+        raise ToolError(e)
+
+
+# Calculate the anisotropy evolution
+@mcp.tool(
+    name="calculate_anisotropy_evolution_tool",
+    description=anisotropic_evolution_instruction,
+    tags={"vector_calculation"}
+)
+async def calculate_anisotropy_evolution_tool(
+        K_values: Annotated[List[float], K_values_meaning],
+        cycles: Annotated[List[float], cycles_meaning],
+):
+    try:
+        result = anisotropy_evolution(
+            np.array(K_values),
+            np.array(cycles),
+        )
         return result
     except Exception as e:
         raise ToolError(e)

@@ -321,3 +321,37 @@ def anisotropic_darcy_flux(
         result['area_flux'] = area_flux
 
     return result
+
+
+def anisotropy_evolution(
+        K_values: np.ndarray,
+        cycles: np.ndarray
+) -> dict:
+    """
+    Analyze the evolution of permeability anisotropy across PIP cycles.
+    :param K_values: Each row is [Kx, Ky, Kz] for one PIP cycle
+    :param cycles: PIP cycle numbers
+    :return: Contains tensors, anisotropy ratios, and cycle-by-cycle data
+    """
+    n = len(cycles)
+    tensors = []
+    betas = np.zeros(n)
+    das = np.zeros(n)
+
+    for i in range(n):
+        tensor = PermeabilityTensor(
+            Kx=K_values[i, 0],
+            Ky=K_values[i, 1],
+            Kz=K_values[i, 2]
+        )
+        tensors.append(tensor)
+        betas[i] = tensor.anisotropy_ratio
+        das[i] = tensor.degree_of_anisotropy
+
+    return {
+        'tensors': tensors,
+        'cycles': cycles,
+        'anisotropy_ratios': betas,
+        'degrees_of_anisotropy': das,
+        'anisotropy_reduction': (betas[0] - betas[-1]) / betas[0] * 100
+    }
