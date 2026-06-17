@@ -21,6 +21,7 @@ from permeability.permeability.AnisotropicTensor import (
     PermeabilityTensor,
     FullTensor,
     anisotropic_darcy_flux,
+    anisotropy_evolution,
 )
 from permeability.utils.UnitConverter import (
     darcy2m2,
@@ -548,3 +549,142 @@ def test_anisotropic_darcy_flux_zero_grad_p():
     np.testing.assert_array_equal(result['darcy_velocity'], [0, 0, 0])
     assert result['flux_magnitude'] == pytest.approx(0)
     assert result['velocity_angle_from_gradP_deg'] == pytest.approx(0.0)
+
+
+# =============================================================================
+# anisotropy_evolution
+# =============================================================================
+
+
+def test_anisotropy_evolution_basic():
+    """Test basic anisotropy evolution across PIP cycles."""
+    K_data = np.array([
+        [1.0e-12, 5.0e-13, 1.0e-13],   # Cycle 0
+        [8.0e-13, 4.5e-13, 1.5e-13],   # Cycle 1
+        [6.0e-13, 4.0e-13, 2.0e-13],   # Cycle 2
+        [4.5e-13, 3.5e-13, 2.5e-13],   # Cycle 3
+    ])
+    cycles = np.array([0, 1, 2, 3])
+    result = anisotropy_evolution(K_values=K_data, cycles=cycles)
+
+    assert 'tensors' in result
+    assert 'cycles' in result
+    assert 'anisotropy_ratios' in result
+    assert 'degrees_of_anisotropy' in result
+    assert 'anisotropy_reduction' in result
+
+    assert len(result['tensors']) == 4
+    assert len(result['cycles']) == 4
+    assert len(result['anisotropy_ratios']) == 4
+    assert len(result['degrees_of_anisotropy']) == 4
+
+    # Each tensor should be a PermeabilityTensor
+    for tensor in result['tensors']:
+        assert isinstance(tensor, PermeabilityTensor)
+
+    # Cycles should match input
+    np.testing.assert_array_equal(result['cycles'], cycles)
+
+
+def test_anisotropy_evolution_anisotropy_ratios():
+    """Test that anisotropy ratios decrease with densification."""
+    K_data = np.array([
+        [1.0e-12, 5.0e-13, 1.0e-13],   # Cycle 0: β = 7.5
+        [8.0e-13, 4.5e-13, 1.5e-13],   # Cycle 1: β = 4.17
+        [6.0e-13, 4.0e-13, 2.0e-13],   # Cycle 2: β = 2.5
+        [4.5e-13, 3.5e-13, 2.5e-13],   # Cycle 3: β = 1.6
+    ])
+    cycles = np.array([0, 1, 2, 3])
+    result = anisotropy_evolution(K_values=K_data, cycles=cycles)
+
+    # Anisotropy ratios should strictly decrease
+    for i in range(1, len(result['anisotropy_ratios'])):
+        assert result['anisotropy_ratios'][i] < result['anisotropy_ratios'][i - 1]
+
+    # Degrees of anisotropy should strictly decrease
+    for i in range(1, len(result['degrees_of_anisotropy'])):
+        assert result['degrees_of_anisotropy'][i] < result['degrees_of_anisotropy'][i - 1]
+
+
+def test_anisotropy_evolution_ratios_values():
+    """Test exact anisotropy ratio values."""
+    K_data = np.array([
+        [1.0e-12, 5.0e-13, 1.0e-13],  # Kx=1e-12, Ky=5e-13, Kz=1e-13
+    ])
+    cycles = np.array([0])
+    result = anisotropy_evolution(K_values=K_data, cycles=cycles)
+
+    # in_plane_average = (1e-12 + 5e-13) / 2 = 7.5e-13
+    # β = 7.5e-13 / 1e-13 = 7.5
+    expected_beta = 7.5
+    assert result['anisotropy_ratios'][0] == pytest.approx(expected_beta)
+
+    # δ = 1 - min/max = 1 - 1e-13/1e-12 = 0.9
+    expected_delta = 0.9
+    assert result['degrees_of_anisotropy'][0] == pytest.approx(expected_delta)
+
+
+def test_anisotropy_evolution_reduction():
+    """Test anisotropy reduction percentage."""
+    K_data = np.array([
+        [1.0e-12, 5.0e-13, 1.0e-13],   # Cycle 0: β = 7.5
+        [4.5e-13, 3.5e-13, 2.5e-13],   # Cycle 3: β = 1.6
+    ])
+    cycles = np.array([0, 3])
+    result = anisotropy_evolution(K_values=K_data, cycles=cycles)
+
+    # Reduction = (β₀ - βₙ) / β₀ * 100
+    beta_0 = 7.5
+    beta_n = ((4.5e-13 + 3.5e-13) / 2) / 2.5e-13  # = 1.6
+    expected_reduction = (beta_0 - beta_n) / beta_0 * 100
+    assert result['anisotropy_reduction'] == pytest.approx(expected_reduction)
+
+
+def test_anisotropy_evolution_isotropic_input():
+    """Test evolution with isotropic permeability (should have β = 1, δ = 0)."""
+    K_data = np.array([
+        [1.0e-12, 1.0e-12, 1.0e-12],   # Fully isotropic
+    ])
+    cycles = np.array([0])
+    result = anisotropy_evolution(K_values=K_data, cycles=cycles)
+
+    assert result['anisotropy_ratios'][0] == pytest.approx(1.0)
+    assert result['degrees_of_anisotropy'][0] == pytest.approx(0.0)
+
+
+def test_anisotropy_evolution_single_cycle():
+    """Test evolution with a single PIP cycle."""
+    K_data = np.array([[1.0e-12, 5.0e-13, 1.0e-13]])
+    cycles = np.array([0])
+    result = anisotropy_evolution(K_values=K_data, cycles=cycles)
+
+    assert len(result['tensors']) == 1
+    assert result['anisotropy_reduction'] == pytest.approx(0.0)  # No change with single point
+
+
+def test_anisotropy_evolution_invalid_input_shape():
+    """Test that invalid input shapes raise errors."""
+    with pytest.raises(ValueError):
+        # Only Kx values, missing Ky and Kz
+        anisotropy_evolution(
+            K_values=np.array([[1e-12], [8e-13]]),
+            cycles=np.array([0, 1])
+        )
+
+
+def test_anisotropy_evolution_tensor_objects():
+    """Test that returned tensor objects store correct values."""
+    K_data = np.array([
+        [1.0e-12, 5.0e-13, 1.0e-13],
+        [8.0e-13, 4.5e-13, 1.5e-13],
+    ])
+    cycles = np.array([0, 1])
+    result = anisotropy_evolution(K_values=K_data, cycles=cycles)
+
+    tensors = result['tensors']
+    assert tensors[0].Kx == pytest.approx(1.0e-12)
+    assert tensors[0].Ky == pytest.approx(5.0e-13)
+    assert tensors[0].Kz == pytest.approx(1.0e-13)
+    assert tensors[1].Kx == pytest.approx(8.0e-13)
+    assert tensors[1].Ky == pytest.approx(4.5e-13)
+    assert tensors[1].Kz == pytest.approx(1.5e-13)

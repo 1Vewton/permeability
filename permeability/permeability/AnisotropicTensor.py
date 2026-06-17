@@ -333,6 +333,14 @@ def anisotropy_evolution(
     :param cycles: PIP cycle numbers
     :return: Contains tensors, anisotropy ratios, and cycle-by-cycle data
     """
+    if K_values.ndim != 2 or K_values.shape[1] != 3:
+        raise ValueError(
+            f"K_values must be a 2D array of shape (n, 3), got shape {K_values.shape}"
+        )
+    if len(cycles) != K_values.shape[0]:
+        raise ValueError(
+            f"cycles length ({len(cycles)}) must match K_values rows ({K_values.shape[0]})"
+        )
     n = len(cycles)
     tensors = []
     betas = np.zeros(n)

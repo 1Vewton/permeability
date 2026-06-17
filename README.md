@@ -344,6 +344,49 @@ print(f"Velocity angle from gradP: {result['velocity_angle_from_gradP_deg']:.2f}
 print(f"Area flux: {result['area_flux']:.3e} m³/s per m²")
 ```
 
+### Anisotropy Evolution Across PIP Cycles
+
+The `anisotropy_evolution` function analyzes how permeability anisotropy evolves over multiple **PIP (Polymer Infiltration and Pyrolysis) cycles**, which is critical for understanding the densification process of ceramic matrix composites (CMCs).
+
+$$
+K_i = \begin{bmatrix}
+K_{x,i} & 0 & 0 \\
+0 & K_{y,i} & 0 \\
+0 & 0 & K_{z,i}
+\end{bmatrix}
+,\qquad
+\beta_i = \frac{K_{\text{in-plane},i}}{K_{z,i}}
+,\qquad
+\delta_i = 1 - \frac{\min(K_{x,i}, K_{y,i}, K_{z,i})}{\max(K_{x,i}, K_{y,i}, K_{z,i})}
+$$
+
+$$
+\text{Anisotropy Reduction} = \frac{\beta_0 - \beta_n}{\beta_0} \times 100\%
+$$
+
+```python
+from permeability.permeability.AnisotropicTensor import anisotropy_evolution
+import numpy as np
+
+# Permeability data across PIP cycles: each row = [Kx, Ky, Kz]
+K_data = np.array([
+    [1.0e-12, 5.0e-13, 1.0e-13],   # Cycle 0 (as-processed)
+    [8.0e-13, 4.5e-13, 1.5e-13],   # Cycle 1
+    [6.0e-13, 4.0e-13, 2.0e-13],   # Cycle 2
+    [4.5e-13, 3.5e-13, 2.5e-13],   # Cycle 3
+])
+cycles = np.array([0, 1, 2, 3])
+
+result = anisotropy_evolution(K_values=K_data, cycles=cycles)
+
+# Access results
+for i, cycle in enumerate(result['cycles']):
+    print(f"Cycle {cycle}: β = {result['anisotropy_ratios'][i]:.2f}, "
+          f"δ = {result['degrees_of_anisotropy'][i]:.3f}")
+
+print(f"Anisotropy reduction: {result['anisotropy_reduction']:.1f}%")
+```
+
 ---
 
 ## MCP Server
@@ -355,7 +398,7 @@ The package includes a **Model Context Protocol (MCP) server** that exposes perm
 Once installed, simply run:
 
 ```bash
-# Default port 8000
+# Default port 8000 (HTTP/SSE transport)
 permeability_mcp
 
 # Custom port
@@ -370,33 +413,42 @@ If you prefer to try it without installing, you can also use:
 uvx --from permeability permeability_mcp
 ```
 
-### Configuration for AI Assistants
+### Streamable HTTP Transport
 
-#### For **Claude Desktop**, add to your `claude_desktop_config.json`:
+For clients that support the modern **Streamable HTTP** transport (MCP spec), the server can be configured to use HTTP POST-based communication instead of SSE:
+
+```bash
+permeability_mcp --port 8000
+# Then connect via Streamable HTTP at http://localhost:8000/mcp
+```
+
+**Claude Desktop** configuration using Streamable HTTP (`claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
     "permeability": {
-      "command": "permeability_mcp",
-      "args": ["--port", "8080"]
+      "type": "http",
+      "url": "http://localhost:8000/mcp"
     }
   }
 }
 ```
 
-#### For **Cline (VS Code extension)**, add to your MCP settings:
+**Cline (VS Code extension)** configuration using Streamable HTTP:
 
 ```json
 {
   "mcpServers": {
     "permeability": {
-      "command": "permeability_mcp",
-      "args": ["--port", "8080"]
+      "type": "http",
+      "url": "http://localhost:8000/mcp"
     }
   }
 }
 ```
+
+> **Note:** The Streamable HTTP transport requires a client that supports the MCP Streamable HTTP specification. The server runs the same underlying implementation — only the transport protocol differs from the default SSE-based connection.
 
 ### Available Tools
 
@@ -412,11 +464,11 @@ Once the MCP server is running, AI assistants can call:
 | `calculate_pressure_difference` | Calculate $\Delta P$ (optionally with capillary correction via $p_c$) |
 | `darcy_m2_converter` | Convert Darcy to m² and/or m² to Darcy (bidirectional) |
 | `calculate_darcy_flux_tool` | Compute Darcy flux in anisotropic media; accepts permeability tensor from principal values, isotropic, or transversely isotropic |
+| `calculate_anisotropy_evolution_tool` | Analyze anisotropy evolution across PIP cycles; returns tensors, anisotropy ratios, and cycle-by-cycle data |
 
 Each tool accepts the same parameters as the Python API.
 
 
----
 
 ## API Reference
 
@@ -695,6 +747,26 @@ Compute Darcy flux and related quantities for anisotropic media.
 | `flux_magnitude` | Magnitude of Darcy velocity (m/s) |
 | `velocity_angle_from_gradP_deg` | Angle between velocity and pressure gradient (degrees) |
 | `area_flux` | Volumetric flux per unit area (m³/s per m²), only if `area_normal` provided |
+
+---
+
+### `anisotropy_evolution(K_values, cycles)`
+
+Analyze the evolution of permeability anisotropy across PIP (Polymer Infiltration and Pyrolysis) cycles.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `K_values` | numpy.ndarray | 2D array where each row is $[K_x, K_y, K_z]$ for one PIP cycle, shape (n, 3) |
+| `cycles` | numpy.ndarray | 1D array of PIP cycle numbers, shape (n,) |
+
+**Returns:** `dict` with keys:
+| Key | Description |
+|-----|-------------|
+| `tensors` | List of `PermeabilityTensor` objects for each cycle |
+| `cycles` | Array of cycle numbers |
+| `anisotropy_ratios` | Array of anisotropy ratios $\beta$ for each cycle |
+| `degrees_of_anisotropy` | Array of degree of anisotropy $\delta$ for each cycle |
+| `anisotropy_reduction` | Percentage reduction in anisotropy from first to last cycle (%) |
 
 ---
 
